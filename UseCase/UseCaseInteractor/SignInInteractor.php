@@ -1,4 +1,6 @@
-<?php 
+<?php
+require_once(__DIR__ . '/../../UseCase/UseCaseOutput/SignInOutput.php');
+require_once(__DIR__ . '/../../Entity/User.php');
 
 /**
  * ログインユースケース
@@ -44,15 +46,15 @@ final class SignInInteractor
      */
     public function handler(): SignInOutput
     {
-        $user = $this->findUser();
+        $userMapper = $this->findUser();
 
-        if ($this->notExistsUser($user)) {
+        if ($this->notExistsUser($userMapper)) {
             return new SignInOutput(false, self::FAILED_MESSAGE);
         }
 
-        $hashedPassword = new HashedPassword($user['password']);
+        $user = $this->buildUserEntity($userMapper);
 
-        if ($this->isInvalidPassword($hashedPassword)) {
+        if ($this->isInvalidPassword($user->password())) {
             return new SignInOutput(false, self::FAILED_MESSAGE);
         }
 
@@ -64,11 +66,11 @@ final class SignInInteractor
     /**
      * ユーザーを入力されたメールアドレスで検索する
      * 
-     * @return array
+     * @return array | null
      */
-    private function findUser(): array
+    private function findUser(): ?array
     {
-        return $this->userDao->findByMail($this->input->email());
+        return $this->userDao->findByEmail($this->input->email());
     }
 
     /**
@@ -80,6 +82,15 @@ final class SignInInteractor
     private function notExistsUser(?array $user): bool
     {
         return is_null($user);
+    }
+
+    private function buildUserEntity(array $user): User
+    {
+        return new User(
+            new UserId($user['id']), 
+            new UserName($user['name']), 
+            new Email($user['email']), 
+            new HashedPassword($user['password']));
     }
 
     /**
@@ -96,12 +107,12 @@ final class SignInInteractor
     /**
      * セッションの保存処理
      *
-     * @param array $user
+     * @param User $user
      * @return void
      */
-    private function saveSession(array $user): void
+    private function saveSession(User $user): void
     {
-        $_SESSION['user']['id'] = $user['id'];
-        $_SESSION['user']['name'] = $user['name'];
+        $_SESSION['user']['id'] = $user->id()->value();
+        $_SESSION['user']['name'] = $user->name()->value();
     }
 }
